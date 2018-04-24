@@ -1,45 +1,48 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-fn find_which_ndk_build_path() -> PathBuf {
-    let mut ndkpath = PathBuf::new();
-    let mut cmd = Command::new("sh");
+fn find_which_ndk_build_path() -> Option<PathBuf> {
+    let mut cmd = Command::new("sh"); // mut due to API limitation
     cmd.arg("-c").arg("which ndk-build");
     match cmd.output() {
         Err(e) => {
-            println!("cargo:warning=Error executing process command <{:?}>: {}",
+            println!(
+                "cargo:warning=Error executing process command <{:?}>: {}",
                 cmd, e);
+            None
         },
-        Ok(o) => {
-            match String::from_utf8(o.stdout) {
-                Err(e) => {
-                    println!("cargo:warning=Error parsing path string: {}",
-                        e);
-                },
-                Ok(s) => {
-                    ndkpath = PathBuf::from(&s);
-                    ndkpath.pop();
-                },
-            }
+        Ok(o) => match String::from_utf8(o.stdout) {
+            Err(e) => {
+                println!(
+                    "cargo:warning=Error parsing path string: {}",
+                    e);
+                None
+            },
+            Ok(s) => match PathBuf::from(&s).parent() {
+                None => None,
+                Some(p) => Some(p.to_path_buf()),
+            },
         },
-    };
-    ndkpath
+    }
 }
 
-fn find_ndk_path() -> PathBuf {
+fn find_ndk_path() -> Option<PathBuf> {
+    // 1. try which command in case environment path is already set
     find_which_ndk_build_path()
-}
-
-fn show_ndk_path(ndkpath: PathBuf) {
-    let ndkpathstr = ndkpath.to_string_lossy();
-    println!("cargo:warning=NDK path {}{}",
-        if ndkpathstr.is_empty() { "not found" } else { "found at " },
-        ndkpathstr);
+    // 2. look for known NDK environment vars
+    // TODO: ### IMPLEMENT
+    // 2. look for known NDK locations
+    // TODO: ### IMPLEMENT
 }
 
 fn establish_ndk() {
-    let ndkpath = find_ndk_path();
-    show_ndk_path(ndkpath);
+    match find_ndk_path() {
+        None => println!(
+            "cargo:warning=NDK path not found"),
+        Some(path) => println!(
+            "cargo:warning=NDK path found at {}",
+            path.to_string_lossy()),
+    };
 }
 
 fn establish_ndk_toolchain() {
