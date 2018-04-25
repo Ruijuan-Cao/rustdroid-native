@@ -18,21 +18,27 @@ fn find_which_ndk_build_path() -> Option<PathBuf> {
                     e);
                 None
             },
-            Ok(s) => match PathBuf::from(&s).parent() {
-                None => None,
-                Some(p) => Some(p.to_path_buf()),
-            },
+            Ok(s) => PathBuf::from(&s).parent()
+                .and_then(|p| { Some(p.to_path_buf()) })
         },
     }
 }
 
+fn find_environment_ndk_path() -> Option<PathBuf> {
+    // TODO: ### IMPLEMENT
+    None
+}
+
+fn find_known_ndk_path() -> Option<PathBuf> {
+    // TODO: ### IMPLEMENT
+    Some(PathBuf::from("~/Library/Android/sdk/ndk-bundle"))
+        // ^ TODO: ### FOR TESTING
+}
+
 fn find_ndk_path() -> Option<PathBuf> {
-    // 1. try which command in case environment path is already set
     find_which_ndk_build_path()
-    // 2. look for known NDK environment vars
-    // TODO: ### IMPLEMENT
-    // 2. look for known NDK locations
-    // TODO: ### IMPLEMENT
+        .or_else(|| find_environment_ndk_path())
+        .or_else(|| find_known_ndk_path())
 }
 
 fn establish_ndk() {
