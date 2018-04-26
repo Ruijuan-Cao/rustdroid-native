@@ -25,53 +25,61 @@ fn command_which_ndk_build_path() -> Option<PathBuf> {
     }
 }
 
-fn find_ndk_env_var_string() -> Option<String> {
-    var("ANDROID_NDK_HOME")
-        .or_else(|_| var("NDK_HOME")
-        .or_else(|_| var("NDK_ROOT")
-        .or_else(|_| var("NDKROOT"))))
-        .ok()
+
+fn find_env_var_path(varname: &'static str) -> Option<PathBuf> {
+    match var(varname) {
+        Err(_) => None,
+        Ok(s) => Some(PathBuf::from(s)).and_then(
+            |p| if p.exists() { Some(p) } else { None }),
+    }
 }
 
-fn find_sdk_env_var_string() -> Option<String> {
-    var("ANDROID_SDK_HOME")
-        .or_else(|_| var("ANDROID_HOME"))
-        .ok()
+fn find_env_var_ndk_build_path(varname: &'static str) -> Option<PathBuf> {
+    find_env_var_path(varname).and_then(
+        |p| if p.join("ndk-build").exists() { Some(p) } else { None })
+}
+
+fn find_env_var_ndk_bundle_build_path(varname: &'static str) -> Option<PathBuf> {
+    // TODO: @@@ DRY THIS WITH ABOVE
+    find_env_var_path(varname).and_then(
+        |p| if p.join("ndk-bundle").join("ndk-build").exists() { Some(p) } else { None })
+}
+
+fn find_ndk_env_var_path() -> Option<PathBuf> {
+    // TODO: @@@ REFACTOR INTO ITERATION OF COLLECTION
+    find_env_var_ndk_build_path("ANDROID_NDK_HOME")
+        .or_else(|| find_env_var_ndk_build_path("ANDROID_NDK_ROOT")
+        .or_else(|| find_env_var_ndk_build_path("NDK_HOME")
+        .or_else(|| find_env_var_ndk_build_path("NDK_ROOT")     // NVIDIA CodeWorks
+        .or_else(|| find_env_var_ndk_build_path("NDKROOT")))))  // NVIDIA CodeWorks
+}
+
+fn find_sdk_env_var_path() -> Option<PathBuf> {
+    // TODO: @@@ REFACTOR INTO ITERATION OF COLLECTION
+    find_env_var_ndk_bundle_build_path("ANDROID_SDK_HOME")
+        .or_else(|| find_env_var_ndk_bundle_build_path("ANDROID_SDK_ROOT"))
+        .or_else(|| find_env_var_ndk_bundle_build_path("ANDROID_HOME"))
 }
 
 fn find_env_ndk_path() -> Option<PathBuf> {
-    match find_ndk_env_var_string().or_else(
-        || find_sdk_env_var_string().map(|s| s + "ndk-bundle")) {
-        Some(s) => Some(PathBuf::from(s)),
-        None => None,
-    }
+    find_ndk_env_var_path().or_else(|| find_sdk_env_var_path())
+}
+
+fn find_ndk_bundle_build_path(pathname: &'static str) -> Option<PathBuf> {
+    // TODO: @@@ DRY THIS WITH ABOVE
+    let path = PathBuf::from(pathname);
+    if path.join("ndk-bundle").join("ndk-build").exists() { Some(path) } else { None }
 }
 
 fn find_known_ndk_path() -> Option<PathBuf> {
-    // TODO: @@@ MAKE THIS RUSTY
-    let pathandroidstudio = PathBuf::from("~/Library/Android/sdk/ndk-bundle");
-    if pathandroidstudio.exists() {
-        Some(pathandroidstudio)
-    } else {
-        let pathnvidiacodeworks = PathBuf::from("~/NVPACK");
-        if pathnvidiacodeworks.exists() {
-            Some(pathnvidiacodeworks)
-        } else {
-            None
-        }
-    }
+    find_ndk_bundle_build_path("~/.android/sdk")
+        .or_else(|| find_ndk_bundle_build_path("~/Library/Android/sdk")
+        .or_else(|| find_ndk_bundle_build_path("~/NVPACK")))
+    // TODO: ### NEED TO LOOK FOR ./android-ndk-r???
 }
 
 fn find_ndk_build_path() -> Option<PathBuf> {
-    find_env_ndk_path().or_else(
-        || find_known_ndk_path().and_then(
-            |p| if p.join("bin").join("ndk-build").exists() {
-                Some(p)
-            } else {
-                None
-            }
-        )
-    )
+    find_env_ndk_path().or_else(|| find_known_ndk_path())
 }
 
 fn find_ndk_path() -> Option<PathBuf> {
