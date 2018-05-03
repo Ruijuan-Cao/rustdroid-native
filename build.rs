@@ -15,7 +15,7 @@ fn command_which_ndk_build_path() -> Option<PathBuf> {
         Ok(o) => match String::from_utf8(o.stdout) {
             Err(e) => {
                 println!(
-                    "cargo:warning=Error parsing path string: {}",
+                    "cargo:warning=Error parsing command output as UTF-8: {}",
                     e);
                 None
             },
@@ -25,66 +25,103 @@ fn command_which_ndk_build_path() -> Option<PathBuf> {
     }
 }
 
-
-fn find_env_var_path(varname: &'static str) -> Option<PathBuf> {
-    match var(varname) {
-        Err(_) => None,
-        Ok(s) => Some(PathBuf::from(s)).and_then(
-            |p| if p.exists() { Some(p) } else { None }),
+fn path_from_string(pathname: &str) -> Option<PathBuf> {
+    // TODO: @@@ FUTURE RUST FEATURE
+    //Some(PathBuf::from(pathname)).filter(|p| p.exists())
+    let path = PathBuf::from(&pathname);
+    if path.exists() {
+        Some(path)
+    } else {
+        None
     }
 }
 
-fn find_env_var_ndk_build_path(varname: &'static str) -> Option<PathBuf> {
-    find_env_var_path(varname).and_then(
-        |p| if p.join("ndk-build").exists() { Some(p) } else { None })
+fn path_with_ndk_build(path: &PathBuf) -> Option<PathBuf> {
+    // TODO: @@@ FUTURE RUST FEATURE
+    //path.filter(|p| p.join("ndk-build").exists())
+    if path.join("ndk-build").exists() {
+        Some(path.clone())
+    } else {
+        None
+    }
 }
 
-fn find_env_var_ndk_bundle_build_path(varname: &'static str) -> Option<PathBuf> {
-    // TODO: @@@ DRY THIS WITH ABOVE
-    find_env_var_path(varname).and_then(
-        |p| if p.join("ndk-bundle").join("ndk-build").exists() { Some(p) } else { None })
+fn path_with_ndk_bundle_ndk_build(path: &PathBuf) -> Option<PathBuf> {
+    path_with_ndk_build(&path.join("ndk-bundle"))
 }
 
-fn find_ndk_env_var_path() -> Option<PathBuf> {
+fn path_with_ndk_build_from_string(pathname: &str) -> Option<PathBuf> {
+    path_from_string(&pathname).and_then(
+        |p| path_with_ndk_build(&p))
+}
+
+fn path_with_ndk_bundle_ndk_build_from_string(pathname: &str) -> Option<PathBuf> {
+    path_from_string(&pathname).and_then(
+        |p| path_with_ndk_bundle_ndk_build(&p))
+}
+
+fn path_with_ndk_build_from_env_var(varname: &'static str) -> Option<PathBuf> {
+    match var(varname) {
+        Ok(s) => path_with_ndk_build_from_string(&s),
+        Err(_) => None,
+    }
+}
+
+fn path_with_ndk_bundle_ndk_build_from_env_var(varname: &'static str) -> Option<PathBuf> {
+    // TODO: DRY WITH ABOVE
+    match var(varname) {
+        Ok(s) => path_with_ndk_bundle_ndk_build_from_string(&s),
+        Err(_) => None,
+    }
+}
+
+fn find_ndk_path_from_ndk_env_vars() -> Option<PathBuf> {
     // TODO: @@@ REFACTOR INTO ITERATION OF COLLECTION
-    find_env_var_ndk_build_path("ANDROID_NDK_HOME")
-        .or_else(|| find_env_var_ndk_build_path("ANDROID_NDK_ROOT")
-        .or_else(|| find_env_var_ndk_build_path("NDK_HOME")
-        .or_else(|| find_env_var_ndk_build_path("NDK_ROOT")     // NVIDIA CodeWorks
-        .or_else(|| find_env_var_ndk_build_path("NDKROOT")))))  // NVIDIA CodeWorks
+    path_with_ndk_build_from_env_var("ANDROID_NDK_HOME")
+        .or_else(|| path_with_ndk_build_from_env_var("ANDROID_NDK_ROOT")
+        .or_else(|| path_with_ndk_build_from_env_var("NDK_HOME")
+        .or_else(|| path_with_ndk_build_from_env_var("NDK_ROOT")     // NVIDIA CodeWorks
+        .or_else(|| path_with_ndk_build_from_env_var("NDKROOT")))))  // NVIDIA CodeWorks
 }
 
-fn find_sdk_env_var_path() -> Option<PathBuf> {
+fn find_ndk_path_from_sdk_env_vars() -> Option<PathBuf> {
     // TODO: @@@ REFACTOR INTO ITERATION OF COLLECTION
-    find_env_var_ndk_bundle_build_path("ANDROID_SDK_HOME")
-        .or_else(|| find_env_var_ndk_bundle_build_path("ANDROID_SDK_ROOT"))
-        .or_else(|| find_env_var_ndk_bundle_build_path("ANDROID_HOME"))
+    path_with_ndk_bundle_ndk_build_from_env_var("ANDROID_SDK_HOME")
+        .or_else(|| path_with_ndk_bundle_ndk_build_from_env_var("ANDROID_SDK_ROOT"))
+        .or_else(|| path_with_ndk_bundle_ndk_build_from_env_var("ANDROID_HOME"))
 }
 
-fn find_env_ndk_path() -> Option<PathBuf> {
-    find_ndk_env_var_path().or_else(|| find_sdk_env_var_path())
+fn find_ndk_path_from_env_vars() -> Option<PathBuf> {
+    find_ndk_path_from_ndk_env_vars().or_else(
+        || find_ndk_path_from_sdk_env_vars())
 }
 
-fn find_ndk_bundle_build_path(pathname: &'static str) -> Option<PathBuf> {
-    // TODO: @@@ DRY THIS WITH ABOVE
-    let path = PathBuf::from(pathname);
-    if path.join("ndk-bundle").join("ndk-build").exists() { Some(path) } else { None }
+fn find_ndk_version_build_path(pathname: &'static str) -> Option<PathBuf> {
+    //println!("cargo:warning=find_ndk_version_build_path() pathname: {:?}", pathname);
+    if let Ok(iter) = PathBuf::from(pathname).read_dir() {
+        for entry in iter {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                //println!("cargo:warning=searching path: {:?}", path);
+                if path.join("ndk-build").exists() {
+                    return Some(path)
+                }
+            }
+        }
+    }
+    None
 }
 
-fn find_known_ndk_path() -> Option<PathBuf> {
-    find_ndk_bundle_build_path("~/.android/sdk")
-        .or_else(|| find_ndk_bundle_build_path("~/Library/Android/sdk")
-        .or_else(|| find_ndk_bundle_build_path("~/NVPACK")))
-    // TODO: ### NEED TO LOOK FOR ./android-ndk-r???
-}
-
-fn find_ndk_build_path() -> Option<PathBuf> {
-    find_env_ndk_path().or_else(|| find_known_ndk_path())
+fn find_ndk_path_from_known_installations() -> Option<PathBuf> {
+    path_with_ndk_bundle_ndk_build_from_string("~/.android/sdk")
+        .or_else(|| path_with_ndk_bundle_ndk_build_from_string("~/Library/Android/sdk")
+        .or_else(|| find_ndk_version_build_path("~/NVPACK")))
 }
 
 fn find_ndk_path() -> Option<PathBuf> {
     command_which_ndk_build_path()
-        .or_else(|| find_ndk_build_path())
+        .or_else(|| find_ndk_path_from_env_vars())
+        .or_else(|| find_ndk_path_from_known_installations())
 }
 
 fn establish_ndk() {
