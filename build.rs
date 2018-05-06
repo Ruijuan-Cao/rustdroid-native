@@ -1,9 +1,7 @@
-use std::env::var;
-use std::path::PathBuf;
-use std::process::Command;
+use std::{env, path::PathBuf, process};
 
 fn command_which_ndk_build_path() -> Option<PathBuf> {
-    let mut cmd = Command::new("sh"); // mut due to API limitation
+    let mut cmd = process::Command::new("sh"); // mut due to API limitation
     cmd.arg("-c").arg("which ndk-build");
     match cmd.output() {
         Err(e) => {
@@ -50,27 +48,17 @@ fn path_with_ndk_bundle_ndk_build(path: &PathBuf) -> Option<PathBuf> {
     path_with_ndk_build(&path.join("ndk-bundle"))
 }
 
-fn path_with_ndk_build_from_string(pathname: &str) -> Option<PathBuf> {
-    path_from_string(&pathname).and_then(
-        |p| path_with_ndk_build(&p))
-}
-
-fn path_with_ndk_bundle_ndk_build_from_string(pathname: &str) -> Option<PathBuf> {
-    path_from_string(&pathname).and_then(
-        |p| path_with_ndk_bundle_ndk_build(&p))
-}
-
 fn path_with_ndk_build_from_env_var(varname: &'static str) -> Option<PathBuf> {
-    match var(varname) {
-        Ok(s) => path_with_ndk_build_from_string(&s),
+    match env::var(varname) {
+        Ok(s) => path_from_string(&s).and_then(|p| path_with_ndk_build(&p)),
         Err(_) => None,
     }
 }
 
 fn path_with_ndk_bundle_ndk_build_from_env_var(varname: &'static str) -> Option<PathBuf> {
     // TODO: DRY WITH ABOVE
-    match var(varname) {
-        Ok(s) => path_with_ndk_bundle_ndk_build_from_string(&s),
+    match env::var(varname) {
+        Ok(s) => path_with_ndk_bundle_ndk_build(&PathBuf::from(&s)),
         Err(_) => None,
     }
 }
@@ -96,9 +84,9 @@ fn find_ndk_path_from_env_vars() -> Option<PathBuf> {
         || find_ndk_path_from_sdk_env_vars())
 }
 
-fn find_ndk_version_build_path(pathname: &'static str) -> Option<PathBuf> {
+fn find_ndk_version_build_path(path: &PathBuf) -> Option<PathBuf> {
     //println!("cargo:warning=find_ndk_version_build_path() pathname: {:?}", pathname);
-    if let Ok(iter) = PathBuf::from(pathname).read_dir() {
+    if let Ok(iter) = path.read_dir() {
         for entry in iter {
             if let Ok(entry) = entry {
                 let path = entry.path();
@@ -113,9 +101,18 @@ fn find_ndk_version_build_path(pathname: &'static str) -> Option<PathBuf> {
 }
 
 fn find_ndk_path_from_known_installations() -> Option<PathBuf> {
-    path_with_ndk_bundle_ndk_build_from_string("~/.android/sdk")
-        .or_else(|| path_with_ndk_bundle_ndk_build_from_string("~/Library/Android/sdk")
-        .or_else(|| find_ndk_version_build_path("~/NVPACK")))
+    env::home_dir().and_then(|home|
+        path_with_ndk_bundle_ndk_build(
+            // Android Studio on GNU/Linux
+            &home.join(".android").join("sdk")
+        ).or_else(|| path_with_ndk_bundle_ndk_build(
+            // Android Studio on macOS
+            &home.join("Library").join("Android").join("sdk"))
+        ).or_else(|| find_ndk_version_build_path(
+            // NVIDIA CodeWorks
+            &home.join("NVPACK"))
+        )
+    )
 }
 
 fn find_ndk_path() -> Option<PathBuf> {
