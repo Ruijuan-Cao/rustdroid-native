@@ -34,6 +34,13 @@ fn path_from_string(pathname: &str) -> Option<PathBuf> {
     }
 }
 
+fn path_from_env_var(varname: &'static str) -> Option<PathBuf> {
+    match env::var(varname) {
+        Ok(s) => path_from_string(&s),
+        Err(_) => None,
+    }
+}
+
 fn path_with_ndk_build(path: &PathBuf) -> Option<PathBuf> {
     // TODO: @@@ FUTURE RUST FEATURE
     //path.filter(|p| p.join("ndk-build").exists())
@@ -49,18 +56,11 @@ fn path_with_ndk_bundle_ndk_build(path: &PathBuf) -> Option<PathBuf> {
 }
 
 fn path_with_ndk_build_from_env_var(varname: &'static str) -> Option<PathBuf> {
-    match env::var(varname) {
-        Ok(s) => path_from_string(&s).and_then(|p| path_with_ndk_build(&p)),
-        Err(_) => None,
-    }
+    path_from_env_var(&varname).and_then(|p| path_with_ndk_build(&p))
 }
 
 fn path_with_ndk_bundle_ndk_build_from_env_var(varname: &'static str) -> Option<PathBuf> {
-    // TODO: DRY WITH ABOVE
-    match env::var(varname) {
-        Ok(s) => path_with_ndk_bundle_ndk_build(&PathBuf::from(&s)),
-        Err(_) => None,
-    }
+    path_from_env_var(&varname).and_then(|p| path_with_ndk_bundle_ndk_build(&p))
 }
 
 fn find_ndk_path_from_ndk_env_vars() -> Option<PathBuf> {
@@ -121,6 +121,10 @@ fn find_ndk_path() -> Option<PathBuf> {
         .or_else(|| find_ndk_path_from_known_installations())
 }
 
+fn find_ndk_toolchain_path() -> Option<PathBuf> {
+    path_from_env_var("NDK_TOOLCHAIN")
+}
+
 fn establish_ndk() {
     match find_ndk_path() {
         None => println!(
@@ -132,9 +136,16 @@ fn establish_ndk() {
 }
 
 fn establish_ndk_toolchain() {
-    establish_ndk();
+    match find_ndk_toolchain_path() {
+        None => println!(
+            "cargo:warning=NDK_TOOLCHAIN path not found"),
+        Some(path) => println!(
+            "cargo:warning=NDK_TOOLCHAIN path found at {}",
+            path.to_string_lossy()),
+    };
 }
 
 fn main() {
+    establish_ndk();
     establish_ndk_toolchain();
 }
