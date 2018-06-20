@@ -217,5 +217,40 @@ __11:00: created github repo rustdroid-native__
   * [Add a license]: [Mozilla Public License 2.0]
   * [Create repository]
 
+-------------------------
+### 2018.06.20 c4augustus
+
+__09:00: upgrade rust from 1.25.0 to 1.26.2, cargo from 0.26.0 to 1.26.0
+  * `rustup update`
+~~~
+info: syncing channel updates for 'stable-x86_64-apple-darwin'
+info: latest update on 2018-06-05, rust version 1.26.2 (594fb253c 2018-06-01)
+info: downloading component 'rustc'
+ 57.4 MiB /  57.4 MiB (100 %)   8.5 MiB/s ETA:   0 s
+info: downloading component 'rust-std'
+ 45.9 MiB /  45.9 MiB (100 %)   8.7 MiB/s ETA:   0 s
+info: downloading component 'cargo'
+info: downloading component 'rust-docs'
+  6.8 MiB /   6.8 MiB (100 %)   6.2 MiB/s ETA:   0 s
+info: downloading component 'rust-std' for 'arm-linux-androideabi'
+ 18.1 MiB /  18.1 MiB (100 %)   7.6 MiB/s ETA:   0 s
+info: removing component 'rustc'
+info: removing component 'rust-std'
+info: removing component 'cargo'
+info: removing component 'rust-docs'
+info: removing component 'rust-std' for 'arm-linux-androideabi'
+info: installing component 'rustc'
+info: installing component 'rust-std'
+info: installing component 'cargo'
+info: installing component 'rust-docs'
+info: installing component 'rust-std' for 'arm-linux-androideabi'
+info: checking for self-updates
+
+  stable-x86_64-apple-darwin updated - rustc 1.26.2 (594fb253c 2018-06-01)
+
+warning: tool `rustfmt` is already installed, remove it from `/Users/admin/.cargo/bin`, then run `rustup update` to have rustup manage this tool.
+warning: tool `cargo-fmt` is already installed, remove it from `/Users/admin/.cargo/bin`, then run `rustup update` to have rustup manage this tool.
+~~~
+
 -----------------
 ### (end of file)
